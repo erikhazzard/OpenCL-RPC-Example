@@ -21,12 +21,10 @@ channel.queue_declare(queue='%s' % (QUEUE_NAME))
 
 # Load data
 # ---------------------------------------
-print 'Loading data...'
-data = GPU_Processor.load_data()
-print 'Data loaded!', data
-
 # Setup the OpenCL program and buffers
+print 'Setting up CL object and loading data...'
 CLProgram = GPU_Processor.CL()
+print 'Done!'
 
 # ----------------------------------------------------------------------------
 #
