@@ -21,12 +21,13 @@ import numpy
 # Data loader
 #
 # ----------------------------------------------------------------------------
+num_items = 20000
 def load_data():
     '''Loads tax data and creates NumPy arrays for it
     '''
     data_dict = {
-        'income': numpy.array(xrange(20000), dtype=numpy.float32),
-        'cap': numpy.array(xrange(20000), dtype=numpy.float32),
+        'income': numpy.array(xrange(num_items), dtype=numpy.float32),
+        'cap': numpy.array(xrange(num_items), dtype=numpy.float32),
     }
 
     return data_dict
@@ -34,38 +35,14 @@ def load_data():
 class CL:
     def __init__(self):
         self.data = load_data()
+
         self.ctx = cl.create_some_context()
         self.queue = cl.CommandQueue(self.ctx)
 
-    def load_program(self):
-        ''' Create the .cl program to use
-        '''
-
-        #Generate a .cl program
-        program = """__kernel void worker(__global float* data1, __global float* data2, __global float* result)
-        {
-            unsigned int i = get_global_id(0);
-            float d1 = data1[i];
-            float d2 = data2[i];
-        """
-
-        # Generate n calculations
-        for i in xrange(2):
-            # This is just a series of nonsenscial operations to get an idea of
-            #   what performance might look like. Our calculations will involve
-            #   less operations
-            program += """result[i] = d1 * d2;
-            """ % ()
-
-        program += "}" 
-
-        #create the program
-        self.program = cl.Program(self.ctx, program).build()
-
     def setup_buffers(self):
-        #Here we set up the data arrays and buffers. This is NOT counted
-        #   in the performance metrics, as on the server this would only need
-        #   to happen once
+        '''Sets up the data arrays and buffers. This needs to happen 
+        only once, as the data itself does not change
+        '''
 
         #initialize client side (CPU) arrays
         timing.timings.start('buffer')
@@ -87,9 +64,34 @@ class CL:
         self.data2_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.data2)
         self.dest_buf = cl.Buffer(self.ctx, mf.WRITE_ONLY, self.data2.nbytes)
         timing.timings.stop('buffer')
+
         print 'Done setting up buffers in %s ms' % (
             timing.timings.timings['buffer']['timings'][-1]
         )
+
+    def load_program(self):
+        ''' Create the .cl program to use. This needs to get regenerated at each
+        request, as the values used change based on the request
+        '''
+
+        #Generate a .cl program
+        program = """__kernel void worker(__global float* data1, __global float* data2, __global float* result)
+        {
+            unsigned int i = get_global_id(0);
+            float d1 = data1[i];
+            float d2 = data2[i];
+        """
+
+        # Define calculations
+        program += """
+        result[i] = d1 * d2 * {income};
+        """.format(income=4000)
+
+        program += "}" 
+
+        #create the program
+        self.program = cl.Program(self.ctx, program).build()
+
 
     def execute(self):
         ''' This handles the actual execution for the processing, which would
@@ -98,6 +100,7 @@ class CL:
         '''
         timing.timings.start('execute')
 
+        self.load_program()
         # Start the program
         self.program.worker(self.queue, 
             self.data1.shape, 
@@ -123,7 +126,6 @@ class CL:
 # ---------------------------------------
 if __name__ == "__main__":
     example = CL()
-    example.load_program()
     example.setup_buffers()
 
     for i in xrange(4):
