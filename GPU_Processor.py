@@ -129,11 +129,10 @@ class CL:
 # Execute it
 # ---------------------------------------
 if __name__ == "__main__":
+    # Test that execute works when calling this directly passing in a param
     example = CL()
 
-    for i in xrange(4):
-        print '>>> Exceuting... (%s of %s)' % (i+1, 4)
-        example.execute({ 'income': 42 })
+    example.execute({ 'income': 42 })
 
     timer = timing.timings.timings['execute']
     avg = (timer['total'] ) / timer['count']
