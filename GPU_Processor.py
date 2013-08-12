@@ -39,6 +39,8 @@ class CL:
         self.ctx = cl.create_some_context()
         self.queue = cl.CommandQueue(self.ctx)
 
+        self.setup_buffers()
+
     def setup_buffers(self):
         '''Sets up the data arrays and buffers. This needs to happen 
         only once, as the data itself does not change
@@ -69,7 +71,7 @@ class CL:
             timing.timings.timings['buffer']['timings'][-1]
         )
 
-    def load_program(self):
+    def load_program(self, params):
         ''' Create the .cl program to use. This needs to get regenerated at each
         request, as the values used change based on the request
         '''
@@ -83,9 +85,10 @@ class CL:
         """
 
         # Define calculations
-        program += """
-        result[i] = d1 * d2 * {income};
-        """.format(income=4000)
+        program += """result[i] = d1 * d2 * {income};
+        """.format(
+                income=params['income']
+            )
 
         program += "}" 
 
@@ -93,14 +96,15 @@ class CL:
         self.program = cl.Program(self.ctx, program).build()
 
 
-    def execute(self):
+    def execute(self, params):
         ''' This handles the actual execution for the processing, which would
         get executed on each request - this is where we care about the
         performance
         '''
         timing.timings.start('execute')
 
-        self.load_program()
+        self.load_program(params)
+
         # Start the program
         self.program.worker(self.queue, 
             self.data1.shape, 
@@ -126,11 +130,10 @@ class CL:
 # ---------------------------------------
 if __name__ == "__main__":
     example = CL()
-    example.setup_buffers()
 
     for i in xrange(4):
         print '>>> Exceuting... (%s of %s)' % (i+1, 4)
-        example.execute()
+        example.execute({ 'income': 42 })
 
     timer = timing.timings.timings['execute']
     avg = (timer['total'] ) / timer['count']

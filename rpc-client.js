@@ -39,7 +39,9 @@ connection.on('ready', function connectionReady(){
 
 var readyToCall = function(){
     // Send a message *after* the connection and queue above have been set up
-    var message = ((Math.random() * 10) | 0) + '';
+    var message = ((Math.random() * 100000) | 0) + '';
+    // get value from command line if passed in
+    message = (process.argv[2] || message) + '';
 
     // 5.  Send request to RPC server
     connection.publish('rpc-queue', message, {

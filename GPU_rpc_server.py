@@ -27,8 +27,6 @@ print 'Data loaded!', data
 
 # Setup the OpenCL program and buffers
 CLProgram = GPU_Processor.CL()
-CLProgram.load_program()
-CLProgram.setup_buffers()
 
 # ----------------------------------------------------------------------------
 #
@@ -39,12 +37,13 @@ CLProgram.setup_buffers()
 # Handle request
 # ---------------------------------------
 def on_request(ch, method, props, body):
-    n = int(body)
-    print " [.] fib(%s)"  % (n,)
-    response = n
+    income = int(body)
+    print "Calling with income: %s"  % (income,)
 
     # Do the calculations with OpenCL
-    result = CLProgram.execute()
+    result = CLProgram.execute({
+        'income': income    
+    })
 
     # Publish a message using the passed in routing key and correlation ID 
     ch.basic_publish(exchange='',
