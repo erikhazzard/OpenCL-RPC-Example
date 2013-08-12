@@ -3,9 +3,6 @@
         Exposes functionality which the GPU-rpc-server will use.
         Using pyOpenCL to handle processing
     ======================================================================= '''
-import random
-import sys
-import os
 from util import timing
 
 import pyopencl as cl
@@ -21,13 +18,16 @@ import numpy
 # Data loader
 #
 # ----------------------------------------------------------------------------
-num_items = 20000
 def load_data():
-    '''Loads tax data and creates NumPy arrays for it
+    '''Loads tax data and creates NumPy arrays for it. This should be called
+    only once, when a CL object is created.  Data could be loaded from
+    a file, database, etc. In this example, each data item is a NumPy array.
     '''
+    num_items = 4000000
+
     data_dict = {
         'income': numpy.array(xrange(num_items), dtype=numpy.float32),
-        'cap': numpy.array(xrange(num_items), dtype=numpy.float32),
+        'data2': numpy.array(xrange(num_items), dtype=numpy.float32),
     }
 
     return data_dict
@@ -50,17 +50,20 @@ class CL:
         timing.timings.start('buffer')
         print 'Setting up data arrays'
 
+        #Get data from arrays
         self.data1 = self.data['income']
-        self.data2 = self.data['cap']
+        self.data2 = self.data['data2']
+
         timing.timings.stop('buffer')
+
         print 'Done setting up two numpy arrays in %s ms | (%s seconds)' % (
             timing.timings.timings['buffer']['timings'][-1],
             timing.timings.timings['buffer']['timings'][-1] / 1000
         )
 
-        #create OpenCL buffers
         timing.timings.start('buffer')
 
+        #create OpenCL buffers
         mf = cl.mem_flags
         self.data1_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.data1)
         self.data2_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.data2)
@@ -84,7 +87,8 @@ class CL:
             float d2 = data2[i];
         """
 
-        # Define calculations
+        # Define calculation based on passed in params. The data arrays are 
+        #   static
         program += """result[i] = d1 * d2 * {income};
         """.format(
                 income=params['income']
@@ -101,10 +105,14 @@ class CL:
         get executed on each request - this is where we care about the
         performance
         '''
-        timing.timings.start('execute')
 
+        timing.timings.start('load')
         self.load_program(params)
+        timing.timings.stop('load')
+        finish = timing.timings.timings['load']['timings'][-1]
+        print '<<< Loaded program in %s ms' % (finish)
 
+        timing.timings.start('execute')
         # Start the program
         self.program.worker(self.queue, 
             self.data1.shape, 
@@ -123,7 +131,7 @@ class CL:
         #show timing info
         timing.timings.stop('execute')
         finish = timing.timings.timings['execute']['timings'][-1]
-        print '<<< DONE in %s' % (finish)
+        print '<<< Executed in %s ms' % (finish)
         return result
 
 # Execute it
@@ -131,10 +139,4 @@ class CL:
 if __name__ == "__main__":
     # Test that execute works when calling this directly passing in a param
     example = CL()
-
-    example.execute({ 'income': 42 })
-
-    timer = timing.timings.timings['execute']
-    avg = (timer['total'] ) / timer['count']
-
-    print 'Average time for execute: %s milliseconds | (%s seconds)' % (avg, avg / 1000)
+    print example.execute({ 'income': 42 })
