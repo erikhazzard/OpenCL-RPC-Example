@@ -1,0 +1,13 @@
+{
+    "name": "OpenCLRPC",
+    "description": "OpenCL rpc server and client",
+    "version": "0.0.1",
+    "author": "Erik Hazzard <enoex1@gmail.com>",
+    "dependencies": {
+        "amqp": "0.1.7",
+        "uuid": "1.4.1"
+    },
+    "scripts": {
+        "start": "node rpc-client.js"
+    }
+}
