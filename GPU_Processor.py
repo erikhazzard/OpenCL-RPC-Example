@@ -23,7 +23,7 @@ def load_data():
     only once, when a CL object is created.  Data could be loaded from
     a file, database, etc. In this example, each data item is a NumPy array.
     '''
-    num_items = 100000000
+    num_items = 100000
 
     data_dict = {
         'income': numpy.array(xrange(num_items), dtype=numpy.float32),
