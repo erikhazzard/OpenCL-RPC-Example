@@ -17,7 +17,9 @@ connection.on('ready', function connectionReady(){
     // 2. setup a queue with a unique name
     // Create an exclusive callback queue. This queue is created once per client
     connection.queue(queueName, {exclusive: true}, function setupQueue(queue){
-        
+        // keep track of consumer tag to unsubscribe once done
+        var consumerTag;
+
         // 3. subscribe to the created queue
         //  After the server receives, processes, and
         //  publishes a response, this callback will be called
@@ -27,8 +29,14 @@ connection.on('ready', function connectionReady(){
             console.log('To string:', 
                 msg.data.toString('utf-8'));
 
+            // unsubscribe from the queue, we're done with it
+            queue.unsubscribe(consumerTag);
+
             // 7. All done
             amqpUtil.safeEndConnection(connection);
+        })
+        .addCallback(function(ok) { 
+            consumerTag = ok.consumerTag; 
         });
 
         // 4.  After the connection and queue have been set up, we can
