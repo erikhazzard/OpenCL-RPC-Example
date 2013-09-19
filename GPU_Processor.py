@@ -7,6 +7,7 @@ from util import timing
 
 import pyopencl as cl
 import numpy
+import random
 
 ''' =======================================================================
 
@@ -25,10 +26,23 @@ def load_data():
     '''
     num_items = 100000
 
+    # Shape of data
     data_dict = {
-        'income': numpy.array(xrange(num_items), dtype=numpy.float32),
-        'data2': numpy.array(xrange(num_items), dtype=numpy.float32),
+        'income': numpy.array([abs(random.gauss(90000, 45000)) for i in xrange(num_items)], 
+            dtype=numpy.float32),
+        'capGains': numpy.array([abs(random.gauss(20000, 4000)) for i in xrange(num_items)], 
+            dtype=numpy.float32),
+        'fillingStatus': numpy.array([random.randint(0,4) for i in xrange(num_items)], 
+            dtype=numpy.float32),
+        'dividendsInterest': numpy.array([abs(random.gauss(50000, 45000)) for i in xrange(num_items)], 
+            dtype=numpy.float32),
+        'children': numpy.array([random.randint(0,4) for i in xrange(num_items)],
+            dtype=numpy.float32),
     }
+
+    # Load all the record data from a file. Each record is a person with
+    #   an income, cap gains, num dependents, etc.
+    
 
     return data_dict
 
@@ -51,9 +65,6 @@ class CL:
         print 'Setting up data arrays'
 
         #Get data from arrays
-        self.data1 = self.data['income']
-        self.data2 = self.data['data2']
-
         timing.timings.stop('buffer')
 
         print 'Done setting up two numpy arrays in %s ms | (%s seconds)' % (
@@ -65,9 +76,20 @@ class CL:
 
         #create OpenCL buffers
         mf = cl.mem_flags
-        self.data1_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.data1)
-        self.data2_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.data2)
-        self.dest_buf = cl.Buffer(self.ctx, mf.WRITE_ONLY, self.data2.nbytes)
+
+        self.income_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
+            hostbuf=self.data['income'])
+        self.capGains_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
+            hostbuf=self.data['capGains'])
+        self.dividendsInterest_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, 
+            hostbuf=self.data['dividendsInterest'])
+        self.children_buf = cl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
+            hostbuf=self.data['children'])
+
+        # Destination buffer must be same size as the input buffer
+        self.dest_buf = cl.Buffer(self.ctx, mf.WRITE_ONLY,
+            self.data['income'].nbytes)
+
         timing.timings.stop('buffer')
 
         print 'Done setting up buffers in %s ms' % (
@@ -80,11 +102,18 @@ class CL:
         '''
 
         #Generate a .cl program
-        program = """__kernel void worker(__global float* data1, __global float* data2, __global float* result)
+        program = """
+        __kernel void worker(
+            __global float* data_income, 
+            __global float* data_capGains, 
+            __global float* data_dividendsInterest, 
+            __global float* data_children, 
+            __global float* result
+            )
         {
             unsigned int i = get_global_id(0);
-            float d1 = data1[i];
-            float d2 = data2[i];
+            float d1 = data_income[i];
+            float d2 = data_capGains[i];
         """
 
         # Define calculation based on passed in params. The data arrays are 
@@ -115,15 +144,17 @@ class CL:
         timing.timings.start('execute')
         # Start the program
         self.program.worker(self.queue, 
-            self.data1.shape, 
-            None, 
-            self.data1_buf, 
-            self.data2_buf, 
+            self.data['income'].shape,
+            None,
+            self.income_buf,
+            self.capGains_buf,
+            self.dividendsInterest_buf,
+            self.children_buf,
             self.dest_buf,
         )
 
         # Get an empty numpy array in the shape of the original data
-        result = numpy.empty_like(self.data1)
+        result = numpy.empty_like(self.data['income'])
 
         #Wait for result
         cl.enqueue_read_buffer(self.queue, self.dest_buf, result).wait()

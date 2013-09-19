@@ -35,6 +35,10 @@ print 'Done!'
 # Handle request
 # ---------------------------------------
 def on_request(ch, method, props, body):
+    '''When a request comes in, get the parameters from it and process it on 
+    the GPU.  The passed in body is a JSON object with Key / Value pairs of
+    Policy Name : Value of Policy
+    '''
     income = int(body)
     print "Calling with income: %s"  % (income,)
 
